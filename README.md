@@ -48,11 +48,15 @@ office2Server
 при нехватке сетевых интервейсов добавить по несколько адресов на интерфейс
 Для начала как обычно устанавливаем Vagrant, Ansible и VirtualBox
 Установка Vagrant:
-
+wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(grep -oP '(?<=UBUNTU_CODENAME=).*' /etc/os-release || lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+apt update && sudo apt install vagrant
 Установка Ansible:
-
+apt install software-properties-common
+add-apt-repository --yes --update ppa:ansible/ansible
+apt install ansible
 Установка VirtualBox:
-
+apt install virtualbox
 Задание состоит из 2 больших частей.
 Начну с теоритической:
 Можно взять карандаш и бумагу или воспользоваться услугой сетевого калькулятора:
