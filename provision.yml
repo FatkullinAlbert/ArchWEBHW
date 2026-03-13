@@ -1,0 +1,72 @@
+---
+- name: Configure all hosts
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # 1. Отключение ufw (если включён)
+    - name: Disable ufw
+      systemd:
+        name: ufw
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    # 2. Включение форвардинга на роутерах
+    - name: Enable IP forwarding on routers
+      sysctl:
+        name: net.ipv4.conf.all.forwarding
+        value: '1'
+        state: present
+        reload: yes
+      when: inventory_hostname in groups['routers']
+
+    # 3. Отключение дефолтного маршрута через eth0 (кроме inetRouter)
+    - name: Disable default route on eth0 (DHCP)
+      template:
+        src: 00-installer-config.yaml.j2
+        dest: /etc/netplan/00-installer-config.yaml
+        owner: root
+        group: root
+        mode: 0644
+      when: inventory_hostname != "inetRouter"
+      notify: apply netplan
+
+    # 4. Копирование конфигурации netplan со статическими маршрутами
+    - name: Copy netplan configuration for each host
+      template:
+        src: "50-vagrant_{{ inventory_hostname }}.yaml.j2"
+        dest: /etc/netplan/50-vagrant.yaml
+        owner: root
+        group: root
+        mode: 0644
+      notify: apply netplan
+
+    # 5. Настройка NAT на inetRouter
+    - name: Setup NAT rules on inetRouter
+      template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      with_items:
+        - { src: "iptables_rules.ipv4", dest: "/etc/iptables_rules.ipv4", mode: "0644" }
+        - { src: "iptables_restore", dest: "/etc/network/if-pre-up.d/iptables", mode: "0755" }
+      when: inventory_hostname == "inetRouter"
+      notify: restore iptables
+
+    # 6. Установка traceroute для всех (опционально)
+    - name: Install traceroute
+      apt:
+        name: traceroute
+        state: present
+        update_cache: yes
+
+  handlers:
+    - name: apply netplan
+      command: netplan apply
+
+    - name: restore iptables
+      command: /etc/network/if-pre-up.d/iptables
